@@ -37,3 +37,16 @@ class TokenResponse(BaseModel):
     """登录成功后的 token 响应（task-003 用）。"""
     access_token: str
     token_type: str = "bearer"
+
+
+class ResumeResponse(BaseModel):
+    """简历信息响应体。"""
+    id: int
+    user_id: int
+    filename: str
+    file_path: str
+    parsed_content: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True

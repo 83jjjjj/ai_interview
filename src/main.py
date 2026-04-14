@@ -7,14 +7,17 @@ API 文档：http://localhost:8000/docs
 from fastapi import FastAPI
 from src.core.database import engine, Base
 from src.api.auth import router as auth_router
+from src.api.resume import router as resume_router
 
 # import 模型类，确保 Base.metadata 能发现它们
 from src.models.user import User  # noqa: F401
+from src.models.resume import Resume  # noqa: F401
 
 app = FastAPI(title="AI 面试器", version="0.1.0")
 
 # 注册路由
 app.include_router(auth_router)
+app.include_router(resume_router)
 
 
 @app.on_event("startup")
