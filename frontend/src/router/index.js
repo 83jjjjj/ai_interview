@@ -17,6 +17,12 @@ const routes = [
     component: () => import('../views/HomeView.vue'),
     meta: { requiresAuth: true },
   },
+  {
+    path: '/resume',
+    name: 'Resume',
+    component: () => import('../views/ResumeView.vue'),
+    meta: { requiresAuth: true },
+  },
 ]
 
 const router = createRouter({

@@ -3,7 +3,10 @@
     <el-card>
       <h2>欢迎，{{ user?.username }}</h2>
       <p>AI 面试器 - 首页</p>
-      <el-button @click="handleLogout">退出登录</el-button>
+      <div style="margin-top: 16px">
+        <el-button type="primary" @click="$router.push('/resume')">上传简历</el-button>
+        <el-button @click="handleLogout">退出登录</el-button>
+      </div>
     </el-card>
   </div>
 </template>
