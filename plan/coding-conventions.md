@@ -46,3 +46,13 @@ def get_user(db: Session, user_id: int) -> Optional[User]:
 - Python 用 black 格式化
 - 前端用 ESLint
 - 缩进统一 4 空格（Python）/ 2 空格（Vue/CSS）
+
+## 测试规范
+
+- 测试基础设施（conftest.py、fixture）写完后先跑一个 trivial 测试验证能工作，再写正式测试用例
+- SQLite 内存数据库测试必须用 `StaticPool`，否则每个连接看到的是独立的空数据库：
+  ```python
+  from sqlalchemy.pool import StaticPool
+  TEST_ENGINE = create_engine("sqlite:///:memory:", poolclass=StaticPool, ...)
+  ```
+- 测试数据库用内存模式（`:memory:`），不污染开发数据库

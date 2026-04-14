@@ -60,7 +60,7 @@
 - 实现 /api/analysis/{user_id}（能力分析 + 趋势图 + 发展建议）
 - 前端：个人能力分析页面（趋势图用 ECharts 或 Chart.js）
 - 全流程联调测试
-- 写 README.md
+- 写 PROJECT.md
 - 整理 Git 提交历史
 
 **交付物**：完整可演示的 MVP
