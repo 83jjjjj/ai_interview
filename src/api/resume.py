@@ -15,6 +15,7 @@ from src.models.resume import Resume
 from src.models.user import User
 from src.api.auth import get_current_user
 from src.api.schemas import ResumeResponse
+from src.services.resume_parser import parse_resume
 
 router = APIRouter(prefix="/api/resume", tags=["简历"])
 
@@ -61,6 +62,14 @@ async def upload_resume(
         file_path=file_path,
     )
     db.add(resume)
+    db.commit()
+    db.refresh(resume)
+
+    # 调用 LLM 解析简历，将结构化结果转成 JSON 存入 parsed_content
+    # 注意：这里 parse_resume 是同步阻塞调用，适合开发阶段
+    # 生产环境应改为后台任务（如 Celery）异步解析
+    resume_info = parse_resume(content.decode("utf-8", errors="ignore"))
+    resume.parsed_content = resume_info.model_dump_json()
     db.commit()
     db.refresh(resume)
 
