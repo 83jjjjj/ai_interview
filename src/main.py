@@ -19,7 +19,10 @@ app = FastAPI(title="AI 面试器", version="0.1.0")
 app.include_router(auth_router)
 app.include_router(resume_router)
 
-
+# 此处装饰器的作用
+# - 把这个函数注册到启动事件列表
+# - uvicorn 启动完成 → 触发 startup 事件 → 调用 on_startup()
+# - 之后才开始接受 HTTP 请求
 @app.on_event("startup")
 def on_startup():
     """应用启动时自动创建所有数据库表（基于继承 Base 的模型类）。"""

@@ -66,7 +66,10 @@ def get_current_user(
         )
     return user
 
-
+# 此处装饰器的作用
+# - "/register" + prefix /api → 完整路径 /api/register                           
+# - response_model=UserResponse — 返回值自动过滤，只保留 UserResponse 定义的字段 
+# - 没写 status_code，POST 默认返回 200
 @router.post("/register", response_model=UserResponse)
 def register(user_in: UserRegister, db: Session = Depends(get_db)):
     """用户注册。

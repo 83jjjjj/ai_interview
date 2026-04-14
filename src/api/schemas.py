@@ -47,6 +47,6 @@ class ResumeResponse(BaseModel):
     file_path: str
     parsed_content: str
     created_at: datetime
-
+    # 告诉 Pydantic 可以从 ORM 模型（Resume）直接转换
     class Config:
         from_attributes = True
