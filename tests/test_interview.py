@@ -222,3 +222,129 @@ class TestSendMessageAPI:
             json={"content": "你好"},
         )
         assert response.status_code == 401
+
+
+class TestStreamAPI:
+    """测试 GET /api/interview/{id}/stream SSE 接口。"""
+
+    def _register_and_login(self, client: TestClient) -> str:
+        """注册用户并登录，返回 token。"""
+        client.post("/api/register", json={
+            "username": "testuser",
+            "email": "test@example.com",
+            "password": "password123",
+        })
+        response = client.post("/api/login", json={
+            "username": "testuser",
+            "password": "password123",
+        })
+        return response.json()["access_token"]
+
+    def _create_resume(self, client: TestClient, token: str) -> dict:
+        """创建一个简历，返回简历数据。"""
+        with patch("src.api.resume.parse_resume", return_value=ResumeInfo(name="测试")):
+            response = client.post(
+                "/api/resume/upload",
+                files={"file": ("resume.pdf", io.BytesIO(b"fake"), "application/pdf")},
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            return response.json()
+
+    def _start_session(self, client: TestClient, token: str, resume_id: int) -> dict:
+        """创建面试会话，返回会话数据。"""
+        response = client.post(
+            "/api/interview/start",
+            json={"resume_id": resume_id, "position": "后端开发"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        return response.json()
+
+    @patch("src.api.interview.get_llm_client")
+    def test_stream_returns_sse(self, mock_get_client, client: TestClient):
+        """stream 接口应该返回 SSE 格式数据。"""
+        # mock LLM 流式输出
+        mock_client = mock_get_client.return_value
+        mock_client.chat_stream.return_value = iter(["你好，", "请介绍", "一下自己。"])
+
+        token = self._register_and_login(client)
+        resume = self._create_resume(client, token)
+        session = self._start_session(client, token, resume["id"])
+
+        response = client.get(
+            f"/api/interview/{session['id']}/stream",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        assert response.status_code == 200
+        assert "text/event-stream" in response.headers["content-type"]
+
+        # 解析 SSE 数据
+        body = response.text
+        assert "data:" in body
+        # json.dumps 会把中文转义为 unicode，用 json.loads 解析后比较
+        import json as json_mod
+        lines = [line for line in body.strip().split("\n") if line.startswith("data: ")]
+        contents = [json_mod.loads(line[6:])["content"] for line in lines[:-1]]  # 最后一条是 done
+        assert "".join(contents) == "你好，请介绍一下自己。"
+        assert '"done": true' in body
+
+    @patch("src.api.interview.get_llm_client")
+    def test_stream_saves_to_db(self, mock_get_client, client: TestClient, db):
+        """stream 完成后应将 AI 回复存入 ConversationRecord。"""
+        mock_client = mock_get_client.return_value
+        mock_client.chat_stream.return_value = iter(["请介绍一下", "你的项目经验。"])
+
+        token = self._register_and_login(client)
+        resume = self._create_resume(client, token)
+        session = self._start_session(client, token, resume["id"])
+
+        client.get(
+            f"/api/interview/{session['id']}/stream",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        # 验证数据库中有 assistant 记录
+        from src.models.interview import ConversationRecord as RecordModel
+        records = db.query(RecordModel).filter(
+            RecordModel.session_id == session["id"],
+            RecordModel.role == "assistant",
+        ).all()
+        assert len(records) == 1
+        assert records[0].content == "请介绍一下你的项目经验。"
+        assert records[0].topic_index == 1
+        assert records[0].question_order == 0  # 首次提问
+
+    def test_stream_without_auth(self, client: TestClient):
+        """未登录访问 stream 返回 401。"""
+        response = client.get("/api/interview/1/stream")
+        assert response.status_code == 401
+
+    def test_stream_session_not_found(self, client: TestClient):
+        """会话不存在返回 404。"""
+        token = self._register_and_login(client)
+        response = client.get(
+            "/api/interview/999/stream",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 404
+
+    @patch("src.api.interview.get_llm_client")
+    def test_stream_session_ended(self, mock_get_client, client: TestClient, db):
+        """已结束的会话访问 stream 返回 400。"""
+        mock_client = mock_get_client.return_value
+        mock_client.chat_stream.return_value = iter(["test"])
+
+        token = self._register_and_login(client)
+        resume = self._create_resume(client, token)
+        session = self._start_session(client, token, resume["id"])
+
+        from src.models.interview import InterviewSession as SessionModel
+        db_session = db.query(SessionModel).filter(SessionModel.id == session["id"]).first()
+        db_session.status = "已完成"
+        db.commit()
+
+        response = client.get(
+            f"/api/interview/{session['id']}/stream",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 400
