@@ -87,6 +87,8 @@ class ConversationRecordResponse(BaseModel):
     session_id: int
     role: str
     content: str
+    topic_index: int
+    question_order: int
     timestamp: datetime
 
     class Config:

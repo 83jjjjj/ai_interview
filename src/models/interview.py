@@ -42,4 +42,8 @@ class ConversationRecord(Base):
     # 角色：user（用户回答）或 assistant（AI 提问）
     role: Mapped[str] = mapped_column(String(20))
     content: Mapped[str] = mapped_column(Text)
+    # 话题编号：从 1 开始，每次开启新话题时 +1
+    topic_index: Mapped[int] = mapped_column(default=1)
+    # 话题内提问序号：0 = 0式提问（新话题首题），1/2/3 = 1式追问
+    question_order: Mapped[int] = mapped_column(default=0)
     timestamp: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

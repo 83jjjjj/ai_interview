@@ -61,7 +61,7 @@ def build_system_prompt(
 1. 每次只问一个问题
 2. 问题要简洁明确，不超过 2 句话
 3. 根据候选人的回答质量决定是追问还是切换话题
-4. 追问不超过 3 轮后必须切换新话题
+4. 追问超过 3 轮后必须切换新话题
 5. 不要评价候选人的回答好坏，直接提问
 6. 用中文提问"""
 
@@ -88,21 +88,22 @@ def build_messages(
     return messages
 
 
-def count_follow_ups(conversation_history: List[Dict]) -> int:
-    """统计追问轮数。
+def count_follow_ups(last_question_order: Optional[int]) -> int:
+    """根据最后一条 assistant 消息的 question_order 返回追问轮数。
 
-    追问轮数 = assistant 消息总数 - 1（减去首次提问）。
-    首次提问不算追问，之后每一轮都是追问。
+    question_order 含义：
+    - 0：0式提问（新话题首题），追问轮数 = 0
+    - 1/2/3：1式追问，追问轮数 = question_order
 
     Args:
-        conversation_history: 历史对话记录
+        last_question_order: 最后一条 assistant 消息的 question_order，None 表示还没有 AI 消息
 
     Returns:
-        追问轮数
+        当前话题内的追问轮数
     """
-    assistant_count = sum(1 for r in conversation_history if r["role"] == "assistant")
-    # 首次提问不算追问，所以减 1
-    return max(0, assistant_count - 1)
+    if last_question_order is None:
+        return 0
+    return last_question_order
 
 
 def generate_question(
@@ -111,6 +112,7 @@ def generate_question(
     difficulty: str,
     resume_text: str,
     conversation_history: List[Dict],
+    last_question_order: Optional[int] = None,
     user_message: Optional[str] = None,
 ) -> str:
     """生成面试问题。
@@ -124,6 +126,7 @@ def generate_question(
         difficulty: 难度
         resume_text: 简历文本
         conversation_history: 历史对话
+        last_question_order: 最后一条 assistant 消息的 question_order（None 表示首轮）
         user_message: 用户最新消息
 
     Returns:
@@ -132,7 +135,7 @@ def generate_question(
     system_prompt = build_system_prompt(position, style, difficulty, resume_text)
 
     # 检查追问轮数，如果超过上限，在 prompt 中加入切换话题指令
-    follow_up_count = count_follow_ups(conversation_history)
+    follow_up_count = count_follow_ups(last_question_order)
     if follow_up_count >= MAX_FOLLOW_UP and user_message:
         system_prompt += (
             "\n\n注意：你已经连续追问了 3 轮，现在必须切换到一个全新的话题。"

@@ -79,36 +79,21 @@ class TestBuildMessages:
 class TestCountFollowUps:
     """测试追问轮数统计。"""
 
-    def test_empty_history(self):
-        """空历史返回 0。"""
-        assert count_follow_ups([]) == 0
+    def test_no_messages(self):
+        """没有 AI 消息时返回 0。"""
+        assert count_follow_ups(None) == 0
 
-    def test_first_question(self):
-        """首次提问（只有 assistant）追问为 0。"""
-        history = [{"role": "assistant", "content": "第一题"}]
-        assert count_follow_ups(history) == 0
+    def test_zero_order(self):
+        """0式提问（question_order=0）追问为 0。"""
+        assert count_follow_ups(0) == 0
 
     def test_one_follow_up(self):
-        """一轮追问后返回 1。"""
-        history = [
-            {"role": "assistant", "content": "第一题"},
-            {"role": "user", "content": "回答1"},
-            {"role": "assistant", "content": "追问"},
-        ]
-        assert count_follow_ups(history) == 1
+        """question_order=1 表示 1 轮追问。"""
+        assert count_follow_ups(1) == 1
 
     def test_three_follow_ups(self):
-        """三轮追问返回 3。"""
-        history = [
-            {"role": "assistant", "content": "第一题"},
-            {"role": "user", "content": "回答1"},
-            {"role": "assistant", "content": "追问1"},
-            {"role": "user", "content": "回答2"},
-            {"role": "assistant", "content": "追问2"},
-            {"role": "user", "content": "回答3"},
-            {"role": "assistant", "content": "追问3"},
-        ]
-        assert count_follow_ups(history) == 3
+        """question_order=3 表示 3 轮追问。"""
+        assert count_follow_ups(3) == 3
 
 
 class TestGenerateQuestion:
@@ -133,18 +118,12 @@ class TestGenerateQuestion:
         mock_client.chat.return_value = "换个话题"
         mock_get_client.return_value = mock_client
 
-        # 构造 3 轮追问的历史
-        history = [
-            {"role": "assistant", "content": "第一题"},
-            {"role": "user", "content": "回答1"},
-            {"role": "assistant", "content": "追问1"},
-            {"role": "user", "content": "回答2"},
-            {"role": "assistant", "content": "追问2"},
-            {"role": "user", "content": "回答3"},
-            {"role": "assistant", "content": "追问3"},
-        ]
-
-        generate_question("后端开发", "综合面试", "中等", "简历", history, "新回答")
+        generate_question(
+            "后端开发", "综合面试", "中等", "简历",
+            conversation_history=[{"role": "user", "content": "回答3"}],
+            last_question_order=3,  # 已追问 3 轮
+            user_message="新回答",
+        )
 
         # 检查 system prompt 中包含了切换话题的指令
         call_args = mock_client.chat.call_args[0][0]
