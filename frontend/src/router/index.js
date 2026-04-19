@@ -23,6 +23,18 @@ const routes = [
     component: () => import('../views/ResumeView.vue'),
     meta: { requiresAuth: true },
   },
+  {
+    path: '/interview/config',
+    name: 'InterviewConfig',
+    component: () => import('../views/InterviewConfigView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/interview/:id',
+    name: 'Interview',
+    component: () => import('../views/InterviewView.vue'),
+    meta: { requiresAuth: true },
+  },
 ]
 
 const router = createRouter({

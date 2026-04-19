@@ -5,6 +5,7 @@
       <p>AI 面试器 - 首页</p>
       <div style="margin-top: 16px">
         <el-button type="primary" @click="$router.push('/resume')">上传简历</el-button>
+        <el-button type="success" @click="$router.push('/interview/config')">发起面试</el-button>
         <el-button @click="handleLogout">退出登录</el-button>
       </div>
     </el-card>
