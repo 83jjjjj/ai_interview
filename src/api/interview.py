@@ -146,8 +146,18 @@ def end_interview(
     )
     history = [{"role": r.role, "content": r.content} for r in history_records]
 
-    # 调 LLM 生成评价
-    result = evaluate_interview(session.position, session.style, session.difficulty, history)
+    # 调 LLM 生成评价（LLM 不可用时使用默认评价）
+    try:
+        result = evaluate_interview(session.position, session.style, session.difficulty, history)
+    except Exception:
+        from src.services.evaluator import EvaluationResult
+        result = EvaluationResult(
+            overall_score=60.0,
+            summary="LLM 服务不可用，无法生成详细评价",
+            dimensions={"沟通表达": 60, "技术深度": 60, "逻辑思维": 60, "问题解决": 60},
+            improvements=[],
+            suggestions="请配置 LLM_API_KEY 后重新评价",
+        )
 
     # 写入 Evaluation
     evaluation = Evaluation(
