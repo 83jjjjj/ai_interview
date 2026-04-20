@@ -25,9 +25,9 @@
     <!-- 输入区域 -->
     <div class="chat-input">
       <el-input
+        ref="inputRef"
         v-model="inputContent"
         type="textarea"
-        :rows="3"
         placeholder="输入你的回答..."
         @keyup.enter.ctrl="sendMessage"
         :disabled="aiLoading"
@@ -43,7 +43,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick } from 'vue'
+import { ref, watch, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import api from '../api'
@@ -58,6 +58,16 @@ const aiLoading = ref(false)
 const aiStreamingContent = ref('')
 const ending = ref(false)
 const messagesRef = ref(null)
+const inputRef = ref(null)
+
+// 输入内容变化时自动撑高 textarea，最多 120px
+watch(inputContent, () => {
+  const textarea = inputRef.value?.$el?.querySelector('textarea')
+  if (textarea) {
+    textarea.style.height = 'auto'
+    textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px'
+  }
+})
 
 // 滚动到消息底部
 function scrollToBottom() {
@@ -198,6 +208,7 @@ onMounted(() => {
   border-radius: 8px;
   line-height: 1.6;
   word-break: break-word;
+  white-space: pre-wrap;
 }
 
 .message-user .message-content {
@@ -213,6 +224,13 @@ onMounted(() => {
 .chat-input {
   padding: 16px 24px;
   border-top: 1px solid #e4e7ed;
+}
+
+.chat-input :deep(textarea) {
+  resize: none;
+  min-height: 40px;
+  max-height: 120px;
+  overflow-y: auto;
 }
 
 .input-actions {
