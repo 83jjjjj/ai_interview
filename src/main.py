@@ -1,7 +1,7 @@
 """FastAPI 应用入口。
 
 启动命令：uvicorn src.main:app --reload
-API 文档：http://localhost:8000/docs
+API 文档：http://localhost:9000/docs
 """
 
 from fastapi import FastAPI
