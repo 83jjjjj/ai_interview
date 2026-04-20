@@ -146,7 +146,7 @@ async function handleEnd() {
   try {
     await api.post(`/api/interview/${sessionId}/end`)
     ElMessage.success('面试已结束')
-    router.push('/')
+    router.push(`/interview/${sessionId}/result`)
   } catch (error) {
     ElMessage.error(error.response?.data?.detail || '结束面试失败')
   } finally {
