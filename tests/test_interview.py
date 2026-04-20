@@ -348,3 +348,132 @@ class TestStreamAPI:
             headers={"Authorization": f"Bearer {token}"},
         )
         assert response.status_code == 400
+
+
+class TestListInterviewsAPI:
+    """测试 GET /api/interview/list 接口。"""
+
+    def _register_and_login(self, client: TestClient) -> str:
+        client.post("/api/register", json={
+            "username": "testuser", "email": "test@example.com", "password": "123456",
+        })
+        return client.post("/api/login", json={
+            "username": "testuser", "password": "123456",
+        }).json()["access_token"]
+
+    def _create_resume(self, client: TestClient, token: str) -> dict:
+        with patch("src.api.resume.parse_resume", return_value=ResumeInfo(name="测试")):
+            return client.post("/api/resume/upload",
+                files={"file": ("r.pdf", io.BytesIO(b"fake"), "application/pdf")},
+                headers={"Authorization": f"Bearer {token}"}).json()
+
+    def _start_session(self, client: TestClient, token: str, resume_id: int, position="后端开发") -> dict:
+        return client.post("/api/interview/start",
+            json={"resume_id": resume_id, "position": position},
+            headers={"Authorization": f"Bearer {token}"}).json()
+
+    def test_list_empty(self, client: TestClient):
+        """没有面试时返回空列表。"""
+        token = self._register_and_login(client)
+        response = client.get("/api/interview/list",
+                              headers={"Authorization": f"Bearer {token}"})
+        assert response.status_code == 200
+        assert response.json() == []
+
+    def test_list_with_sessions(self, client: TestClient):
+        """创建面试后列表包含该记录。"""
+        token = self._register_and_login(client)
+        resume = self._create_resume(client, token)
+        session = self._start_session(client, token, resume["id"])
+
+        response = client.get("/api/interview/list",
+                              headers={"Authorization": f"Bearer {token}"})
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data) == 1
+        assert data[0]["id"] == session["id"]
+
+    def test_list_filter_by_position(self, client: TestClient):
+        """按岗位筛选。"""
+        token = self._register_and_login(client)
+        resume = self._create_resume(client, token)
+        self._start_session(client, token, resume["id"], "后端开发")
+        self._start_session(client, token, resume["id"], "前端开发")
+
+        response = client.get("/api/interview/list?position=前端",
+                              headers={"Authorization": f"Bearer {token}"})
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data) == 1
+        assert data[0]["position"] == "前端开发"
+
+    def test_list_without_auth(self, client: TestClient):
+        """未登录返回 401。"""
+        response = client.get("/api/interview/list")
+        assert response.status_code == 401
+
+
+class TestInterviewDetailAPI:
+    """测试 GET /api/interview/{id}/detail 接口。"""
+
+    def _register_and_login(self, client: TestClient) -> str:
+        client.post("/api/register", json={
+            "username": "testuser", "email": "test@example.com", "password": "123456",
+        })
+        return client.post("/api/login", json={
+            "username": "testuser", "password": "123456",
+        }).json()["access_token"]
+
+    def _create_resume(self, client: TestClient, token: str) -> dict:
+        with patch("src.api.resume.parse_resume", return_value=ResumeInfo(name="测试")):
+            return client.post("/api/resume/upload",
+                files={"file": ("r.pdf", io.BytesIO(b"fake"), "application/pdf")},
+                headers={"Authorization": f"Bearer {token}"}).json()
+
+    def _start_session(self, client: TestClient, token: str, resume_id: int) -> dict:
+        return client.post("/api/interview/start",
+            json={"resume_id": resume_id, "position": "后端开发"},
+            headers={"Authorization": f"Bearer {token}"}).json()
+
+    def test_detail_basic(self, client: TestClient):
+        """详情接口返回会话信息。"""
+        token = self._register_and_login(client)
+        resume = self._create_resume(client, token)
+        session = self._start_session(client, token, resume["id"])
+
+        response = client.get(f"/api/interview/{session['id']}/detail",
+                              headers={"Authorization": f"Bearer {token}"})
+        assert response.status_code == 200
+        data = response.json()
+        assert data["session"]["id"] == session["id"]
+        assert data["conversations"] == []
+        assert data["evaluation"] is None
+
+    def test_detail_with_conversations(self, client: TestClient):
+        """详情包含对话记录。"""
+        token = self._register_and_login(client)
+        resume = self._create_resume(client, token)
+        session = self._start_session(client, token, resume["id"])
+
+        client.post(f"/api/interview/{session['id']}/message",
+                    json={"content": "你好"},
+                    headers={"Authorization": f"Bearer {token}"})
+
+        response = client.get(f"/api/interview/{session['id']}/detail",
+                              headers={"Authorization": f"Bearer {token}"})
+        data = response.json()
+        assert len(data["conversations"]) == 1
+        assert data["conversations"][0]["role"] == "user"
+        assert data["conversations"][0]["content"] == "你好"
+
+    def test_detail_not_found(self, client: TestClient):
+        """会话不存在返回 404。"""
+        token = self._register_and_login(client)
+        response = client.get("/api/interview/999/detail",
+                              headers={"Authorization": f"Bearer {token}"})
+        assert response.status_code == 404
+
+    def test_detail_without_auth(self, client: TestClient):
+        """未登录返回 401。"""
+        response = client.get("/api/interview/1/detail")
+        assert response.status_code == 401

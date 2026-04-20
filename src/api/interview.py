@@ -5,7 +5,9 @@
 
 import json
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import List, Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -291,3 +293,96 @@ def stream_response(
             "X-Accel-Buffering": "no",
         },
     )
+
+
+@router.get("/list", response_model=List[InterviewSessionResponse])
+def list_interviews(
+    status_filter: Optional[str] = Query(None, alias="status"),
+    position: Optional[str] = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """查询当前用户的面试会话列表。
+
+    支持按 status 和 position 筛选，按 created_at 倒序，支持分页。
+    """
+    query = db.query(InterviewSession).filter(
+        InterviewSession.user_id == current_user.id
+    )
+
+    if status_filter:
+        query = query.filter(InterviewSession.status == status_filter)
+    if position:
+        query = query.filter(InterviewSession.position.contains(position))
+
+    sessions = (
+        query.order_by(InterviewSession.created_at.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
+    return sessions
+
+
+@router.get("/{session_id}/detail")
+def get_interview_detail(
+    session_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """获取面试详情，包含对话记录和评价。
+
+    返回会话信息、对话记录列表、评价信息（如果有）。
+    """
+    session = db.query(InterviewSession).filter(
+        InterviewSession.id == session_id,
+        InterviewSession.user_id == current_user.id,
+    ).first()
+    if session is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="面试会话不存在",
+        )
+
+    # 获取对话记录
+    records = (
+        db.query(ConversationRecord)
+        .filter(ConversationRecord.session_id == session_id)
+        .order_by(ConversationRecord.timestamp)
+        .all()
+    )
+
+    # 获取评价（如果有）
+    from src.models.evaluation import Evaluation
+    evaluation = db.query(Evaluation).filter(
+        Evaluation.session_id == session_id
+    ).first()
+
+    # 构建响应
+    result = {
+        "session": InterviewSessionResponse.from_orm(session).dict(),
+        "conversations": [
+            {
+                "id": r.id,
+                "role": r.role,
+                "content": r.content,
+                "timestamp": str(r.timestamp),
+            }
+            for r in records
+        ],
+        "evaluation": None,
+    }
+
+    if evaluation:
+        result["evaluation"] = {
+            "id": evaluation.id,
+            "overall_score": evaluation.overall_score,
+            "summary": evaluation.summary,
+            "dimensions": json.loads(evaluation.dimensions),
+            "improvements": json.loads(evaluation.improvements),
+            "suggestions": evaluation.suggestions,
+        }
+
+    return result
