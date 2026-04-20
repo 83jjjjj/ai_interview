@@ -14,6 +14,7 @@ from src.api.interview import router as interview_router
 from src.models.user import User  # noqa: F401
 from src.models.resume import Resume  # noqa: F401
 from src.models.interview import InterviewSession, ConversationRecord  # noqa: F401
+from src.models.evaluation import Evaluation  # noqa: F401
 
 app = FastAPI(title="AI 面试器", version="0.1.0")
 

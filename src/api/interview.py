@@ -107,6 +107,74 @@ def send_message(
     return record
 
 
+@router.post("/{session_id}/end")
+def end_interview(
+    session_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """结束面试并生成评价。
+
+    收集对话记录 → 调 LLM 生成评价 → 写入 Evaluation 表 → 更新 session 状态。
+    """
+    # 验证会话
+    session = db.query(InterviewSession).filter(
+        InterviewSession.id == session_id,
+        InterviewSession.user_id == current_user.id,
+    ).first()
+    if session is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="面试会话不存在",
+        )
+    if session.status != "进行中":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="面试已结束，无法重复结束",
+        )
+
+    # 收集对话记录
+    from src.models.evaluation import Evaluation
+    from src.services.evaluator import evaluate_interview
+    from datetime import datetime
+
+    history_records = (
+        db.query(ConversationRecord)
+        .filter(ConversationRecord.session_id == session_id)
+        .order_by(ConversationRecord.timestamp)
+        .all()
+    )
+    history = [{"role": r.role, "content": r.content} for r in history_records]
+
+    # 调 LLM 生成评价
+    result = evaluate_interview(session.position, session.style, session.difficulty, history)
+
+    # 写入 Evaluation
+    evaluation = Evaluation(
+        session_id=session_id,
+        overall_score=result.overall_score,
+        summary=result.summary,
+        dimensions=json.dumps(result.dimensions, ensure_ascii=False),
+        improvements=json.dumps(result.improvements, ensure_ascii=False),
+        suggestions=result.suggestions,
+    )
+    db.add(evaluation)
+
+    # 更新 session 状态
+    session.status = "已完成"
+    session.ended_at = datetime.utcnow()
+
+    db.commit()
+    db.refresh(evaluation)
+
+    return {
+        "evaluation_id": evaluation.id,
+        "session_status": session.status,
+        "overall_score": evaluation.overall_score,
+        "summary": evaluation.summary,
+    }
+
+
 @router.get("/{session_id}/stream")
 def stream_response(
     session_id: int,

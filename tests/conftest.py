@@ -14,6 +14,7 @@ from src.main import app
 from src.models.user import User  # noqa: F401
 from src.models.resume import Resume  # noqa: F401
 from src.models.interview import InterviewSession, ConversationRecord  # noqa: F401
+from src.models.evaluation import Evaluation  # noqa: F401
 
 # 测试用内存数据库，不影响开发数据库
 # StaticPool 确保所有连接共享同一个内存数据库（SQLite 内存模式每个连接是独立的）
