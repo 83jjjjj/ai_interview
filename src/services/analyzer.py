@@ -101,9 +101,9 @@ def analyze_user(
         weakness = data.get("weakness", "暂无分析")
         development_plan = data.get("development_plan", "暂无建议")
     except Exception:
-        strength = "分析服务不可用"
-        weakness = "分析服务不可用"
-        development_plan = "请配置 LLM_API_KEY"
+        strength = "分析服务暂不可用"
+        weakness = "分析服务暂不可用"
+        development_plan = "请稍后再试"
 
     return AnalysisResult(
         total_interviews=total,
