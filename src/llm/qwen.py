@@ -57,6 +57,8 @@ class QwenClient(LLMClientBase):
             stream=True,
         )
         for chunk in stream:
+            if not chunk.choices:
+                continue
             delta = chunk.choices[0].delta
             if delta.content:
                 yield delta.content

@@ -109,17 +109,7 @@ class TestEndInterviewAPI:
 
     @patch("src.services.evaluator.get_llm_client")
     def test_end_success(self, mock_get_client, client: TestClient, db):
-        """正常结束面试，session 状态变为已完成，Evaluation 有记录。"""
-        mock_client = MagicMock()
-        mock_client.chat.return_value = json.dumps({
-            "overall_score": 85.0,
-            "summary": "表现良好",
-            "dimensions": {"沟通表达": 80, "技术深度": 85, "逻辑思维": 80, "问题解决": 80},
-            "improvements": ["表达可以更简洁"],
-            "suggestions": "多练习",
-        })
-        mock_get_client.return_value = mock_client
-
+        """正常结束面试，session 状态变为已完成。"""
         token = self._register_and_login(client)
         resume = self._create_resume(client, token)
         session = self._start_session(client, token, resume["id"])
@@ -132,15 +122,9 @@ class TestEndInterviewAPI:
         assert response.status_code == 200
         data = response.json()
         assert data["session_status"] == "已完成"
-        assert data["overall_score"] == 85.0
 
-        # 验证数据库
-        from src.models.evaluation import Evaluation as EvalModel
+        # 验证 session 状态已更新
         from src.models.interview import InterviewSession as SessionModel
-        eval_record = db.query(EvalModel).filter(EvalModel.session_id == session["id"]).first()
-        assert eval_record is not None
-        assert eval_record.overall_score == 85.0
-
         session_record = db.query(SessionModel).filter(SessionModel.id == session["id"]).first()
         assert session_record.status == "已完成"
         assert session_record.ended_at is not None

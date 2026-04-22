@@ -5,7 +5,7 @@
 
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
@@ -65,6 +65,43 @@ def get_current_user(
             detail="用户不存在",
         )
     return user
+
+
+def get_current_user_for_sse(
+    access_token: str = Query(None),
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db),
+) -> User:
+    """SSE 专用鉴权：优先从 URL 参数 access_token 取 token，其次从 header 取。
+
+    EventSource 不支持自定义 header，所以 SSE 接口需要通过 URL 参数传 token。
+    """
+    token = access_token
+    if token is None and credentials is not None:
+        token = credentials.credentials
+    if token is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="未提供认证凭证",
+        )
+
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        user_id = int(payload.get("sub"))
+    except (JWTError, ValueError, TypeError):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="无效的认证凭证",
+        )
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="用户不存在",
+        )
+    return user
+
 
 # 此处装饰器的作用
 # - "/register" + prefix /api → 完整路径 /api/register                           
