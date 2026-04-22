@@ -9,6 +9,7 @@ from src.core.database import engine, Base
 from src.api.auth import router as auth_router
 from src.api.resume import router as resume_router
 from src.api.interview import router as interview_router
+from src.api.analysis import router as analysis_router
 
 # import 模型类，确保 Base.metadata 能发现它们
 from src.models.user import User  # noqa: F401
@@ -22,6 +23,7 @@ app = FastAPI(title="AI 面试器", version="0.1.0")
 app.include_router(auth_router)
 app.include_router(resume_router)
 app.include_router(interview_router)
+app.include_router(analysis_router)
 
 # 此处装饰器的作用
 # - 把这个函数注册到启动事件列表
