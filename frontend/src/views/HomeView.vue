@@ -7,6 +7,7 @@
         <el-button type="primary" @click="$router.push('/resume')">上传简历</el-button>
         <el-button type="success" @click="$router.push('/interview/config')">发起面试</el-button>
         <el-button @click="$router.push('/history')">历史记录</el-button>
+        <el-button @click="$router.push('/analysis')">能力分析</el-button>
         <el-button @click="handleLogout">退出登录</el-button>
       </div>
     </el-card>
