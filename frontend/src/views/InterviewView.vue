@@ -154,8 +154,18 @@ async function handleEnd() {
   }
 }
 
-onMounted(() => {
-  // TODO: 加载历史对话记录
+onMounted(async () => {
+  // 加载历史对话记录
+  try {
+    const response = await api.get(`/api/interview/${sessionId}/detail`)
+    messages.value = response.data.conversations.map((c) => ({
+      role: c.role,
+      content: c.content,
+    }))
+    scrollToBottom()
+  } catch {
+    // 加载失败不影响使用
+  }
 })
 </script>
 

@@ -34,7 +34,7 @@
         </el-table-column>
         <el-table-column label="操作" width="120">
           <template #default="{ row }">
-            <el-button size="small" type="primary" @click="viewDetail(row.id)">查看详情</el-button>
+            <el-button size="small" type="primary" @click="viewDetail(row.id, row.status)">查看详情</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -98,8 +98,12 @@ function debounceLoad() {
   }, 300)
 }
 
-function viewDetail(sessionId) {
-  router.push(`/interview/${sessionId}/result`)
+function viewDetail(sessionId, status) {
+  if (status === '进行中') {
+    router.push(`/interview/${sessionId}`)
+  } else {
+    router.push(`/interview/${sessionId}/result`)
+  }
 }
 
 function formatDate(dateStr) {
