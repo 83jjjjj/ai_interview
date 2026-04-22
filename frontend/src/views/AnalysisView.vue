@@ -6,28 +6,42 @@
         <el-button @click="$router.push('/')" size="small">返回首页</el-button>
       </div>
 
-      <div v-if="loading" v-loading="true" style="min-height: 200px" />
+      <!-- 加载中 -->
+      <div v-if="loading && !analysis" v-loading="true" style="min-height: 200px" />
 
-      <template v-else-if="analysis">
+      <!-- 无数据 -->
+      <el-empty v-if="analysis && analysis.total_interviews === 0" description="暂无面试记录，请先完成面试" />
+
+      <!-- 有数据 -->
+      <template v-if="analysis && analysis.total_interviews > 0">
         <!-- 基础统计 -->
         <div class="stats-section">
           <el-statistic title="面试次数" :value="analysis.total_interviews" />
           <el-statistic title="平均分" :value="analysis.average_score" :precision="1" />
         </div>
 
-        <!-- 无数据提示 -->
-        <el-empty v-if="analysis.total_interviews === 0" description="暂无面试记录，请先完成面试" />
+        <!-- 能力趋势折线图 -->
+        <div class="chart-section">
+          <h3>能力趋势</h3>
+          <div ref="chartRef" style="width: 100%; height: 350px"></div>
+        </div>
 
-        <template v-else>
-          <!-- 能力趋势折线图 -->
-          <div class="chart-section">
-            <h3>能力趋势</h3>
-            <div ref="chartRef" style="width: 100%; height: 350px"></div>
+        <!-- LLM 生成中 -->
+        <div v-if="loading" class="progress-section">
+          <el-divider />
+          <p class="loading-text">
+            <el-icon class="is-loading"><Loading /></el-icon>
+            AI 正在分析你的能力...
+          </p>
+          <div v-if="streamingContent" class="streaming-preview">
+            <pre>{{ streamingContent }}</pre>
           </div>
+        </div>
 
+        <!-- LLM 分析结果 -->
+        <template v-if="analysis.strength">
           <el-divider />
 
-          <!-- 优势与不足 -->
           <div class="summary-section">
             <el-row :gutter="16">
               <el-col :span="12">
@@ -47,7 +61,6 @@
 
           <el-divider />
 
-          <!-- 发展建议 -->
           <div class="plan-section">
             <h3>发展建议</h3>
             <p>{{ analysis.development_plan }}</p>
@@ -59,29 +72,84 @@
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ref, onMounted, onUnmounted, nextTick } from 'vue'
+import { Loading } from '@element-plus/icons-vue'
 import * as echarts from 'echarts'
 import api from '../api'
 
 const analysis = ref(null)
 const loading = ref(true)
 const chartRef = ref(null)
+const streamingContent = ref('')
+let eventSource = null
 
 onMounted(async () => {
-  try {
-    const response = await api.get('/api/analysis')
-    analysis.value = response.data
+  const token = localStorage.getItem('access_token')
+  eventSource = new EventSource(`/api/analysis/stream?access_token=${token}`)
 
-    if (response.data.total_interviews > 0) {
-      await nextTick()
-      renderChart(response.data.dimension_trends)
+  eventSource.onmessage = (event) => {
+    const data = JSON.parse(event.data)
+
+    if (data.done) {
+      eventSource.close()
+      loading.value = false
+      return
     }
-  } catch (error) {
-    ElMessage.error(error.response?.data?.detail || '加载分析失败')
-  } finally {
-    loading.value = false
+
+    // 统计数据（非 LLM 部分）
+    if (data.stats) {
+      analysis.value = {
+        ...analysis.value,
+        ...data.stats,
+      }
+      if (data.stats.dimension_trends && Object.keys(data.stats.dimension_trends).length > 0) {
+        nextTick(() => renderChart(data.stats.dimension_trends))
+      }
+      return
+    }
+
+    // LLM 流式内容
+    if (data.content) {
+      streamingContent.value += data.content
+      // 尝试解析已生成的 LLM 内容
+      tryParsePartial(streamingContent.value)
+    }
   }
+
+  eventSource.onerror = () => {
+    eventSource.close()
+    loading.value = false
+    // 出错时尝试同步加载
+    api.get('/api/analysis').then((res) => {
+      analysis.value = res.data
+      if (res.data.total_interviews > 0 && res.data.dimension_trends) {
+        nextTick(() => renderChart(res.data.dimension_trends))
+      }
+    }).catch(() => {})
+  }
+})
+
+function tryParsePartial(text) {
+  if (!analysis.value) {
+    analysis.value = { total_interviews: 0, average_score: 0, dimension_trends: {}, strength: '', weakness: '', development_plan: '' }
+  }
+
+  if (!analysis.value.strength) {
+    const m = text.match(/"strength"\s*:\s*"((?:[^"\\]|\\.)*)"/)
+    if (m) analysis.value.strength = m[1].replace(/\\n/g, '\n').replace(/\\"/g, '"')
+  }
+  if (!analysis.value.weakness) {
+    const m = text.match(/"weakness"\s*:\s*"((?:[^"\\]|\\.)*)"/)
+    if (m) analysis.value.weakness = m[1].replace(/\\n/g, '\n').replace(/\\"/g, '"')
+  }
+  if (!analysis.value.development_plan) {
+    const m = text.match(/"development_plan"\s*:\s*"((?:[^"\\]|\\.)*)"/)
+    if (m) analysis.value.development_plan = m[1].replace(/\\n/g, '\n').replace(/\\"/g, '"')
+  }
+}
+
+onUnmounted(() => {
+  if (eventSource) eventSource.close()
 })
 
 function renderChart(trends) {
@@ -136,6 +204,34 @@ function renderChart(trends) {
 
 .chart-section {
   margin: 24px 0;
+}
+
+.progress-section {
+  margin: 16px 0;
+}
+
+.loading-text {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #909399;
+}
+
+.streaming-preview {
+  margin-top: 16px;
+  padding: 12px;
+  background: #f5f7fa;
+  border-radius: 4px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.streaming-preview pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 13px;
+  color: #606266;
 }
 
 .summary-section {

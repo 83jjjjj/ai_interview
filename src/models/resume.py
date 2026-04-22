@@ -22,6 +22,8 @@ class Resume(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     filename: Mapped[str] = mapped_column(String(255))  # 用户上传时的原始文件名
     file_path: Mapped[str] = mapped_column(String(500))  # 服务器存储路径
-    # AI 解析后的简历文本内容，初始为空，后续 task-007 填充
+    # AI 解析后的简历文本内容，初始为空
     parsed_content: Mapped[str] = mapped_column(Text, default="")
+    # 解析状态：pending（待解析）/ done（已完成）/ failed（失败）
+    parse_status: Mapped[str] = mapped_column(String(20), default="pending")
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

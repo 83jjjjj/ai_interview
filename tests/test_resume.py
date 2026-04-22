@@ -6,7 +6,6 @@
 import io
 import json
 import os
-import shutil
 from unittest.mock import patch
 
 import pytest
@@ -33,7 +32,8 @@ class TestResumeModel:
         assert resume.user_id == 1
         assert resume.filename == "test.pdf"
         assert resume.file_path == "uploads/test.pdf"
-        assert resume.parsed_content == ""  # 默认为空字符串
+        assert resume.parsed_content == ""
+        assert resume.parse_status == "pending"  # 默认状态
         assert resume.created_at is not None
 
 
@@ -53,14 +53,10 @@ class TestUploadAPI:
         })
         return response.json()["access_token"]
 
-    @patch("src.api.resume.parse_resume")
-    def test_upload_pdf_success(self, mock_parse, client: TestClient):
-        """上传 PDF 文件应该成功，且 parsed_content 有 JSON 结构化解析结果。"""
-        from src.services.resume_parser import ResumeInfo
-        mock_parse.return_value = ResumeInfo(name="张三", email="test@example.com")
+    def test_upload_returns_immediately(self, client: TestClient):
+        """上传应该立即返回 201，parse_status 为 pending。"""
         token = self._register_and_login(client)
 
-        # 创建一个假的 PDF 文件（内容无关紧要，只测接口逻辑）
         pdf_content = b"%PDF-1.4 fake content"
         response = client.post(
             "/api/resume/upload",
@@ -71,20 +67,13 @@ class TestUploadAPI:
         assert response.status_code == 201
         data = response.json()
         assert data["filename"] == "resume.pdf"
-        # parsed_content 应该是 JSON 字符串
-        parsed = json.loads(data["parsed_content"])
-        assert parsed["name"] == "张三"
-        assert parsed["email"] == "test@example.com"
+        assert data["parse_status"] == "pending"
 
-        # 清理上传的文件
         if os.path.exists(data["file_path"]):
             os.remove(data["file_path"])
 
-    @patch("src.api.resume.parse_resume")
-    def test_upload_image_success(self, mock_parse, client: TestClient):
+    def test_upload_image_success(self, client: TestClient):
         """上传图片文件应该成功。"""
-        from src.services.resume_parser import ResumeInfo
-        mock_parse.return_value = ResumeInfo(name="测试")
         token = self._register_and_login(client)
 
         img_content = b"\x89PNG fake content"
@@ -97,6 +86,7 @@ class TestUploadAPI:
         assert response.status_code == 201
         data = response.json()
         assert data["filename"] == "resume.png"
+        assert data["parse_status"] == "pending"
 
         if os.path.exists(data["file_path"]):
             os.remove(data["file_path"])
@@ -122,6 +112,33 @@ class TestUploadAPI:
         )
 
         assert response.status_code == 401
+
+    def test_background_parse_updates_status(self, db, client: TestClient):
+        """后台解析完成后 parse_status 应为 done。"""
+        from src.api.resume import _parse_resume_background
+        from src.models.resume import Resume
+        from src.services.resume_parser import ResumeInfo
+
+        resume = Resume(
+            user_id=1,
+            filename="test.pdf",
+            file_path="uploads/test.pdf",
+            parse_status="pending",
+        )
+        db.add(resume)
+        db.commit()
+        resume_id = resume.id
+
+        # mock parse_resume 和 SessionLocal（让后台函数用测试的 db）
+        with patch("src.api.resume.parse_resume") as mock_parse, \
+             patch("src.api.resume.SessionLocal", return_value=db):
+            mock_parse.return_value = ResumeInfo(name="张三")
+            _parse_resume_background(resume_id, "简历内容")
+
+        # 重新查询（因为背景函数关闭了 session）
+        updated = db.query(Resume).filter(Resume.id == resume_id).first()
+        assert updated.parse_status == "done"
+        assert "张三" in updated.parsed_content
 
 
 class TestListAPI:
@@ -152,11 +169,8 @@ class TestListAPI:
         assert response.status_code == 200
         assert response.json() == []
 
-    @patch("src.api.resume.parse_resume")
-    def test_list_after_upload(self, mock_parse, client: TestClient):
+    def test_list_after_upload(self, client: TestClient):
         """上传后列表应该包含该记录。"""
-        from src.services.resume_parser import ResumeInfo
-        mock_parse.return_value = ResumeInfo(name="测试")
         token = self._register_and_login(client)
 
         # 上传一个文件
@@ -176,6 +190,7 @@ class TestListAPI:
         resumes = list_response.json()
         assert len(resumes) == 1
         assert resumes[0]["id"] == upload_response.json()["id"]
+        assert resumes[0]["parse_status"] == "pending"
 
         # 清理
         if os.path.exists(upload_response.json()["file_path"]):

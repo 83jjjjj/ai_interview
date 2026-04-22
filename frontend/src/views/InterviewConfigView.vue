@@ -70,7 +70,13 @@ const rules = {
 onMounted(async () => {
   try {
     const response = await api.get('/api/resume/list')
-    resumes.value = response.data
+    // 只显示解析完成的简历
+    const all = response.data
+    const done = all.filter((r) => r.parse_status === 'done')
+    resumes.value = done
+    if (all.length > 0 && done.length === 0) {
+      ElMessage.warning('简历正在解析中，请稍后再试')
+    }
   } catch {
     ElMessage.error('获取简历列表失败')
   }

@@ -7,10 +7,10 @@ import os
 import uuid
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile, File, status
 from sqlalchemy.orm import Session
 
-from src.core.database import get_db
+from src.core.database import get_db, SessionLocal
 from src.models.resume import Resume
 from src.models.user import User
 from src.api.auth import get_current_user
@@ -27,13 +27,14 @@ UPLOAD_DIR = "uploads"
 
 @router.post("/upload", response_model=ResumeResponse, status_code=status.HTTP_201_CREATED)
 async def upload_resume(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """上传简历文件。
 
-    支持 PDF 和图片格式，文件存入 uploads/ 目录，记录写入数据库。
+    立即保存文件并返回，后台异步调 LLM 解析。
     """
     # 检查文件扩展名
     ext = os.path.splitext(file.filename)[1].lower()
@@ -55,25 +56,44 @@ async def upload_resume(
     with open(file_path, "wb") as f:
         f.write(content)
 
-    # 写入数据库
+    # 写入数据库（状态=pending，后台异步解析）
     resume = Resume(
         user_id=current_user.id,
         filename=file.filename,
         file_path=file_path,
+        parse_status="pending",
     )
     db.add(resume)
     db.commit()
     db.refresh(resume)
 
-    # 调用 LLM 解析简历，将结构化结果转成 JSON 存入 parsed_content
-    # 注意：这里 parse_resume 是同步阻塞调用，适合开发阶段
-    # 生产环境应改为后台任务（如 Celery）异步解析
-    resume_info = parse_resume(content.decode("utf-8", errors="ignore"))
-    resume.parsed_content = resume_info.model_dump_json()
-    db.commit()
-    db.refresh(resume)
+    # 后台异步解析
+    resume_id = resume.id
+    raw_text = content.decode("utf-8", errors="ignore")
+    background_tasks.add_task(_parse_resume_background, resume_id, raw_text)
 
     return resume
+
+
+def _parse_resume_background(resume_id: int, raw_text: str):
+    """后台任务：调 LLM 解析简历，更新数据库。"""
+    db = SessionLocal()
+    try:
+        resume = db.query(Resume).filter(Resume.id == resume_id).first()
+        if resume is None:
+            return
+
+        resume_info = parse_resume(raw_text)
+        resume.parsed_content = resume_info.model_dump_json()
+        resume.parse_status = "done"
+        db.commit()
+    except Exception:
+        resume = db.query(Resume).filter(Resume.id == resume_id).first()
+        if resume:
+            resume.parse_status = "failed"
+            db.commit()
+    finally:
+        db.close()
 
 
 @router.get("/list", response_model=List[ResumeResponse])

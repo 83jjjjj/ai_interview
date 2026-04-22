@@ -44,6 +44,15 @@
 
       <el-table :data="resumes" v-loading="loading" empty-text="暂无简历">
         <el-table-column prop="filename" label="文件名" />
+        <el-table-column label="状态" width="120">
+          <template #default="{ row }">
+            <el-tag v-if="row.parse_status === 'done'" type="success" size="small">已完成</el-tag>
+            <el-tag v-else-if="row.parse_status === 'failed'" type="danger" size="small">解析失败</el-tag>
+            <el-tag v-else type="warning" size="small">
+              <el-icon class="is-loading" style="margin-right: 4px"><Loading /></el-icon>解析中
+            </el-tag>
+          </template>
+        </el-table-column>
         <el-table-column label="上传时间" width="180">
           <template #default="{ row }">
             {{ formatDate(row.created_at) }}
@@ -51,7 +60,13 @@
         </el-table-column>
         <el-table-column label="操作" width="120">
           <template #default="{ row }">
-            <el-button size="small" @click="showParsed(row)">查看解析</el-button>
+            <el-button
+              size="small"
+              @click="showParsed(row)"
+              :disabled="row.parse_status !== 'done'"
+            >
+              查看解析
+            </el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -91,7 +106,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { UploadFilled } from '@element-plus/icons-vue'
+import { UploadFilled, Loading } from '@element-plus/icons-vue'
 import api from '../api'
 
 const resumes = ref([])
