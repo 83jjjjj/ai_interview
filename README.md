@@ -197,3 +197,8 @@ ai_interview/
 
 综上，感觉大部分都是实现细节问题，多是因为task描述的有模糊点，让ai自行发挥，导致不满足预期。解决方案是走一步看一步改一步，微调即可。
 现在task做完了，其实纯ai coding时间可能不足1h，按1个task平均2min算。review时间是更长的，包括更清晰的需求，不断地微调，以及干中学。
+
+## 启动命令
+
+后端 python3 -m uvicorn src.main:app --reload --port=9000 --host=0.0.0.0
+前端 cd frontend && npm run dev
