@@ -81,6 +81,10 @@ def analysis_stream(
     ]
 
     def generate():
+        # 先发送统计数据（DB 计算，瞬间完成），前端立即渲染图表
+        yield f"data: {json.dumps({'stats': {'total_interviews': total, 'average_score': round(avg_score, 1), 'dimension_trends': dimension_trends}})}\n\n"
+
+        # 再流式发送 LLM 分析内容
         client = get_llm_client()
         full_response = ""
 
@@ -98,8 +102,7 @@ def analysis_stream(
                 yield f"data: {json.dumps({'content': default})}\n\n"
                 full_response = default
 
-        # 发送统计数据和结束信号
-        yield f"data: {json.dumps({'stats': {'total_interviews': total, 'average_score': round(avg_score, 1), 'dimension_trends': dimension_trends}})}\n\n"
+        # 结束信号
         yield f"data: {json.dumps({'done': True})}\n\n"
 
     return StreamingResponse(
