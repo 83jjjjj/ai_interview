@@ -26,46 +26,45 @@
           <div ref="chartRef" style="width: 100%; height: 350px"></div>
         </div>
 
-        <!-- LLM 生成中 -->
-        <div v-if="loading" class="progress-section">
-          <el-divider />
-          <p class="loading-text">
-            <el-icon class="is-loading"><Loading /></el-icon>
-            AI 正在分析你的能力...
-          </p>
-          <div v-if="streamingContent" class="streaming-preview">
-            <pre>{{ streamingContent }}</pre>
-          </div>
+        <el-divider />
+
+        <!-- 优势/不足 — 始终显示，内容流式填入 -->
+        <div class="summary-section">
+          <el-row :gutter="16">
+            <el-col :span="12">
+              <el-card shadow="never" class="summary-card strength">
+                <h3>优势</h3>
+                <p v-if="analysis.strength">{{ analysis.strength }}</p>
+                <p v-else class="placeholder-text">
+                  <el-icon class="is-loading"><Loading /></el-icon>
+                  AI 正在分析...
+                </p>
+              </el-card>
+            </el-col>
+            <el-col :span="12">
+              <el-card shadow="never" class="summary-card weakness">
+                <h3>不足</h3>
+                <p v-if="analysis.weakness">{{ analysis.weakness }}</p>
+                <p v-else class="placeholder-text">
+                  <el-icon class="is-loading"><Loading /></el-icon>
+                  AI 正在分析...
+                </p>
+              </el-card>
+            </el-col>
+          </el-row>
         </div>
 
-        <!-- LLM 分析结果 -->
-        <template v-if="analysis.strength">
-          <el-divider />
+        <el-divider />
 
-          <div class="summary-section">
-            <el-row :gutter="16">
-              <el-col :span="12">
-                <el-card shadow="never" class="summary-card strength">
-                  <h3>优势</h3>
-                  <p>{{ analysis.strength }}</p>
-                </el-card>
-              </el-col>
-              <el-col :span="12">
-                <el-card shadow="never" class="summary-card weakness">
-                  <h3>不足</h3>
-                  <p>{{ analysis.weakness }}</p>
-                </el-card>
-              </el-col>
-            </el-row>
-          </div>
-
-          <el-divider />
-
-          <div class="plan-section">
-            <h3>发展建议</h3>
-            <p>{{ analysis.development_plan }}</p>
-          </div>
-        </template>
+        <!-- 发展建议 — 始终显示，内容流式填入 -->
+        <div class="plan-section">
+          <h3>发展建议</h3>
+          <p v-if="analysis.development_plan">{{ analysis.development_plan }}</p>
+          <p v-else class="placeholder-text">
+            <el-icon class="is-loading"><Loading /></el-icon>
+            AI 正在分析...
+          </p>
+        </div>
       </template>
     </el-card>
   </div>
@@ -206,34 +205,6 @@ function renderChart(trends) {
   margin: 24px 0;
 }
 
-.progress-section {
-  margin: 16px 0;
-}
-
-.loading-text {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #909399;
-}
-
-.streaming-preview {
-  margin-top: 16px;
-  padding: 12px;
-  background: #f5f7fa;
-  border-radius: 4px;
-  max-height: 200px;
-  overflow-y: auto;
-}
-
-.streaming-preview pre {
-  margin: 0;
-  white-space: pre-wrap;
-  word-break: break-word;
-  font-size: 13px;
-  color: #606266;
-}
-
 .summary-section {
   margin: 24px 0;
 }
@@ -255,5 +226,13 @@ function renderChart(trends) {
   color: #606266;
   line-height: 1.6;
   white-space: pre-wrap;
+}
+
+.placeholder-text {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #909399;
+  font-style: italic;
 }
 </style>
