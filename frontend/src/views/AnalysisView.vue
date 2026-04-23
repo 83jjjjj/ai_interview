@@ -133,29 +133,39 @@ function tryParsePartial(text) {
     analysis.value = { total_interviews: 0, average_score: 0, dimension_trends: {}, strength: '', weakness: '', development_plan: '' }
   }
 
+  // strength：完整匹配后不再更新
   if (!analysis.value.strength) {
     const m = text.match(/"strength"\s*:\s*"((?:[^"\\]|\\.)*)"/)
     if (m) analysis.value.strength = m[1].replace(/\\n/g, '\n').replace(/\\"/g, '"')
   }
+  // weakness：完整匹配后不再更新
   if (!analysis.value.weakness) {
     const m = text.match(/"weakness"\s*:\s*"((?:[^"\\]|\\.)*)"/)
     if (m) analysis.value.weakness = m[1].replace(/\\n/g, '\n').replace(/\\"/g, '"')
   }
-  if (!analysis.value.development_plan) {
-    // 先尝试匹配字符串格式："development_plan": "..."
-    const m = text.match(/"development_plan"\s*:\s*"((?:[^"\\]|\\.)*)"/)
-    if (m) {
-      analysis.value.development_plan = m[1].replace(/\\n/g, '\n').replace(/\\"/g, '"')
-    } else {
-      // 再尝试匹配数组格式："development_plan": ["...", "..."]
-      const arrMatch = text.match(/"development_plan"\s*:\s*\[((?:[^\]]|\\.))*)\]/)
+  // development_plan：部分匹配也会持续更新，直到完整匹配
+  if (text.includes('"development_plan"')) {
+    const arrayStart = text.match(/"development_plan"\s*:\s*\[/)
+    if (arrayStart) {
+      // 数组格式
+      const arrMatch = text.match(/"development_plan"\s*:\s*\[((?:[^\]]|\\.)*)\]/)
       if (arrMatch) {
         try {
           const items = JSON.parse('[' + arrMatch[1] + ']')
           analysis.value.development_plan = items.join('\n')
         } catch { /* 解析失败 */ }
       } else {
-        // 未完整时，提取已有的部分文本
+        const partial = text.match(/"development_plan"\s*:\s*\[(.*)/)
+        if (partial && partial[1].length > 0) {
+          analysis.value.development_plan = partial[1].replace(/\\n/g, '\n').replace(/\\"/g, '"') + '...'
+        }
+      }
+    } else {
+      // 字符串格式
+      const m = text.match(/"development_plan"\s*:\s*"((?:[^"\\]|\\.)*)"/)
+      if (m) {
+        analysis.value.development_plan = m[1].replace(/\\n/g, '\n').replace(/\\"/g, '"')
+      } else {
         const partial = text.match(/"development_plan"\s*:\s*"((?:[^"\\]|\\.)*)/)
         if (partial && partial[1].length > 0) {
           analysis.value.development_plan = partial[1].replace(/\\n/g, '\n').replace(/\\"/g, '"') + '...'
