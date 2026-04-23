@@ -142,8 +142,17 @@ function tryParsePartial(text) {
     if (m) analysis.value.weakness = m[1].replace(/\\n/g, '\n').replace(/\\"/g, '"')
   }
   if (!analysis.value.development_plan) {
+    // 先尝试完整匹配
     const m = text.match(/"development_plan"\s*:\s*"((?:[^"\\]|\\.)*)"/)
-    if (m) analysis.value.development_plan = m[1].replace(/\\n/g, '\n').replace(/\\"/g, '"')
+    if (m) {
+      analysis.value.development_plan = m[1].replace(/\\n/g, '\n').replace(/\\"/g, '"')
+    } else {
+      // 未完整时，提取已有的部分文本（去掉末尾的 JSON 闭合部分）
+      const partial = text.match(/"development_plan"\s*:\s*"((?:[^"\\]|\\.)*)/)
+      if (partial && partial[1].length > 0) {
+        analysis.value.development_plan = partial[1].replace(/\\n/g, '\n').replace(/\\"/g, '"') + '...'
+      }
+    }
   }
 }
 
