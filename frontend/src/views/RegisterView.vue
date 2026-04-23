@@ -95,17 +95,19 @@ async function handleRegister() {
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  background-color: #f0f2f5;
 }
 
 .register-card {
   width: 400px;
+  border: 1px solid #eee;
+  box-shadow: none;
 }
 
 .register-title {
   text-align: center;
   margin-bottom: 24px;
-  color: #303133;
+  font-size: 20px;
+  font-weight: 600;
 }
 
 .register-footer {

@@ -68,21 +68,24 @@ async function handleLogin() {
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  background-color: #f0f2f5;
 }
 
 .login-card {
   width: 400px;
+  border: 1px solid #eee;
+  box-shadow: none;
 }
 
 .login-title {
   text-align: center;
   margin-bottom: 24px;
-  color: #303133;
+  font-size: 20px;
+  font-weight: 600;
 }
 
 .login-footer {
   text-align: center;
-  color: #909399;
+  color: #999;
+  font-size: 14px;
 }
 </style>

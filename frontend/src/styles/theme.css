@@ -1,0 +1,121 @@
+/* 东方极简主题 — 覆盖 Element Plus 默认样式 */
+
+:root {
+  --accent: #1a1a1a;
+  --accent-hover: #333;
+  --bg: #fff;
+  --bg-alt: #f8f8f8;
+  --border: #eee;
+  --text: #1a1a1a;
+  --text-secondary: #666;
+  --text-muted: #999;
+}
+
+/* 全局 */
+body {
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, 'Noto Sans SC', sans-serif;
+  color: var(--text);
+  background: var(--bg);
+}
+
+/* Element Plus 按钮覆盖 */
+.el-button--primary {
+  background-color: var(--accent) !important;
+  border-color: var(--accent) !important;
+}
+.el-button--primary:hover {
+  background-color: var(--accent-hover) !important;
+  border-color: var(--accent-hover) !important;
+}
+
+/* 卡片极简化 */
+.el-card {
+  border: 1px solid var(--border) !important;
+  box-shadow: none !important;
+  border-radius: 8px !important;
+}
+
+/* 表格极简化 */
+.el-table {
+  --el-table-border-color: var(--border);
+}
+.el-table th {
+  background: transparent !important;
+  font-weight: 500 !important;
+  font-size: 12px !important;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted) !important;
+}
+.el-table td {
+  border-bottom: 1px solid var(--border) !important;
+}
+
+/* Tag 极简化 */
+.el-tag {
+  border-radius: 4px !important;
+}
+
+/* 进度条颜色覆盖 */
+.el-progress-bar__inner {
+  background-color: var(--accent) !important;
+}
+
+/* Steps 颜色覆盖 */
+.el-step__title.is-process {
+  color: var(--accent) !important;
+}
+.el-step__head.is-process {
+  border-color: var(--accent) !important;
+  color: var(--accent) !important;
+}
+.el-step__head.is-finish {
+  border-color: var(--accent) !important;
+  color: var(--accent) !important;
+}
+.el-step__title.is-finish {
+  color: var(--accent) !important;
+}
+.el-step__head.is-finish .el-step__icon {
+  background-color: var(--accent) !important;
+  border-color: var(--accent) !important;
+  color: #fff !important;
+}
+
+/* 统计数字 */
+.el-statistic__head {
+  font-size: 12px !important;
+  color: var(--text-muted) !important;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.el-statistic__content {
+  font-weight: 700 !important;
+}
+
+/* Descriptions */
+.el-descriptions__label {
+  font-weight: 500 !important;
+  color: var(--text-secondary) !important;
+}
+
+/* Form */
+.el-form-item__label {
+  font-weight: 500 !important;
+  color: var(--text-secondary) !important;
+}
+
+/* Dialog */
+.el-dialog {
+  border-radius: 8px !important;
+}
+
+/* Input focus */
+.el-input__wrapper:focus-within {
+  box-shadow: 0 0 0 1px var(--accent) !important;
+}
+.el-textarea__inner:focus {
+  box-shadow: 0 0 0 1px var(--accent) !important;
+}
